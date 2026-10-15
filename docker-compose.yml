@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: aba
+      POSTGRES_PASSWORD: aba_local_only
+      POSTGRES_DB: aba_skills_360
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aba -d aba_skills_360"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - aba-postgres:/var/lib/postgresql/data
+
+volumes:
+  aba-postgres:

@@ -1,0 +1,7 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE TABLE "organizations" ("id" UUID NOT NULL DEFAULT gen_random_uuid(),"code" TEXT NOT NULL,"name" TEXT NOT NULL,"created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updated_at" TIMESTAMPTZ(6) NOT NULL,CONSTRAINT "organizations_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "organizations_code_key" ON "organizations"("code");
+CREATE TABLE "age_bands" ("id" UUID NOT NULL DEFAULT gen_random_uuid(),"organization_id" UUID NOT NULL,"code" TEXT NOT NULL,"label" TEXT NOT NULL,"minimum_grade" INTEGER NOT NULL,"maximum_grade" INTEGER NOT NULL,"created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updated_at" TIMESTAMPTZ(6) NOT NULL,CONSTRAINT "age_bands_pkey" PRIMARY KEY ("id"),CONSTRAINT "age_bands_grade_range_check" CHECK ("minimum_grade" >= 1 AND "maximum_grade" <= 12 AND "minimum_grade" <= "maximum_grade"));
+CREATE UNIQUE INDEX "age_bands_organization_id_code_key" ON "age_bands"("organization_id", "code");
+CREATE INDEX "age_bands_organization_id_idx" ON "age_bands"("organization_id");
+ALTER TABLE "age_bands" ADD CONSTRAINT "age_bands_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

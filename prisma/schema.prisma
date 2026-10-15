@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String       @id @default(uuid()) @db.Uuid
+  code        String       @unique
+  name        String
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ageBands    AgeBand[]
+  schools     School[]
+  memberships Membership[]
+  students    Student[]
+
+  @@map("organizations")
+}
+
+enum MembershipRole {
+  STUDENT
+  PARENT
+  TEACHER
+  SCHOOL_ADMIN
+  CONTENT_EDITOR
+  ABA_OPERATOR
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REVOKED
+}
+
+model UserProfile {
+  id                  String               @id @default(uuid()) @db.Uuid
+  authUserId          String               @unique @map("auth_user_id") @db.Uuid
+  displayName         String               @map("display_name")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships         Membership[]
+  guardianLinks       GuardianLink[]
+  studentAccountLinks StudentAccountLink[]
+
+  @@map("user_profiles")
+}
+
+model School {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  code           String
+  name           String
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  classrooms     Classroom[]
+  memberships    Membership[]
+  enrollments    Enrollment[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("schools")
+}
+
+model Classroom {
+  id           String       @id @default(uuid()) @db.Uuid
+  schoolId     String       @map("school_id") @db.Uuid
+  code         String
+  name         String
+  academicYear String       @map("academic_year")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  school       School       @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  enrollments  Enrollment[]
+  memberships  Membership[]
+
+  @@unique([schoolId, code, academicYear])
+  @@index([schoolId, academicYear])
+  @@map("classrooms")
+}
+
+model Membership {
+  id             String           @id @default(uuid()) @db.Uuid
+  userProfileId  String           @map("user_profile_id") @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  schoolId       String?          @map("school_id") @db.Uuid
+  classroomId    String?          @map("classroom_id") @db.Uuid
+  role           MembershipRole
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userProfile    UserProfile      @relation(fields: [userProfileId], references: [id], onDelete: Restrict)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  school         School?          @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  classroom      Classroom?       @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  @@unique([userProfileId, organizationId, role, schoolId, classroomId])
+  @@index([userProfileId, organizationId])
+  @@index([organizationId, schoolId, role, status])
+  @@map("memberships")
+}
+
+model Student {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  studentCode    String               @map("student_code")
+  displayName    String               @map("display_name")
+  grade          Int
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  enrollments    Enrollment[]
+  guardianLinks  GuardianLink[]
+  accountLinks   StudentAccountLink[]
+
+  @@unique([organizationId, studentCode])
+  @@index([organizationId])
+  @@map("students")
+}
+
+model Enrollment {
+  id          String    @id @default(uuid()) @db.Uuid
+  studentId   String    @map("student_id") @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  classroomId String    @map("classroom_id") @db.Uuid
+  startsAt    DateTime  @map("starts_at") @db.Date
+  endsAt      DateTime? @map("ends_at") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, classroomId, startsAt])
+  @@index([studentId, endsAt])
+  @@index([classroomId, startsAt, endsAt])
+  @@map("enrollments")
+}
+
+model GuardianLink {
+  id                 String             @id @default(uuid()) @db.Uuid
+  guardianUserId     String             @map("guardian_user_id") @db.Uuid
+  studentId          String             @map("student_id") @db.Uuid
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  guardian           UserProfile        @relation(fields: [guardianUserId], references: [id], onDelete: Restrict)
+  student            Student            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([guardianUserId, studentId])
+  @@index([guardianUserId, verificationStatus])
+  @@map("guardian_links")
+}
+
+model StudentAccountLink {
+  id            String           @id @default(uuid()) @db.Uuid
+  userProfileId String           @map("user_profile_id") @db.Uuid
+  studentId     String           @map("student_id") @db.Uuid
+  status        MembershipStatus @default(ACTIVE)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userProfile   UserProfile      @relation(fields: [userProfileId], references: [id], onDelete: Restrict)
+  student       Student          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([userProfileId, studentId])
+  @@index([userProfileId, status])
+  @@map("student_account_links")
+}
+
+model AgeBand {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  code           String
+  label          String
+  minimumGrade   Int          @map("minimum_grade")
+  maximumGrade   Int          @map("maximum_grade")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("age_bands")
+}
